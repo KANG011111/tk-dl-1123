@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Shorts Downloader MVP</title>
+  <style>
+    :root {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #111;
+      background: #f5f5f7;
+    }
+
+    body {
+      margin: 0 auto;
+      max-width: 960px;
+      padding: 2rem 1rem 4rem;
+    }
+
+    h1 {
+      text-align: center;
+    }
+
+    section {
+      background: #fff;
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+      margin-bottom: 1.5rem;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+    }
+
+    input,
+    select,
+    button {
+      width: 100%;
+      padding: 0.75rem;
+      border-radius: 8px;
+      border: 1px solid #c8c8d0;
+      font-size: 1rem;
+    }
+
+    button {
+      background: #0f62fe;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      transition: background 0.2s ease;
+      margin-top: 0.75rem;
+    }
+
+    button:disabled {
+      background: #95b4ff;
+      cursor: not-allowed;
+    }
+
+    .result {
+      margin-top: 1rem;
+      min-height: 1.5rem;
+      font-size: 0.95rem;
+    }
+
+    ul {
+      padding-left: 1.25rem;
+    }
+
+    .error {
+      color: #da1e28;
+      margin-top: 0.5rem;
+    }
+
+    /* Indeterminate Progress Bar Animation */
+    .indeterminate-bar {
+      position: absolute;
+      background-color: #0f62fe;
+      height: 100%;
+      width: 30%;
+      animation: indeterminate 1.5s infinite linear;
+    }
+
+    @keyframes indeterminate {
+      0% {
+        left: -30%;
+      }
+
+      100% {
+        left: 100%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Shorts Downloader MVP</h1>
+
+  <section id="single-download">
+    <h3>YouTube Shorts 單支下載</h3>
+    <div class="input-group">
+      <label for="single-url">影片網址</label>
+      <input type="text" id="single-url" placeholder="https://..." />
+    </div>
+    <div class="input-group">
+      <label for="format-select">下載格式</label>
+      <select id="format-select">
+        <option value="best">MP4 (best)</option>
+      </select>
+    </div>
+    <button id="single-btn">下載影片</button>
+    <div class="result" id="single-result"></div>
+  </section>
+
+  <section id="creator-download">
+    <h3>YouTube 頻道批量下載</h3>
+    <div class="input-group">
+      <label for="creator-url">創作者頁面網址</label>
+      <input type="text" id="creator-url" placeholder="https://..." />
+      <button id="fetch-btn">抓取影片列表</button>
+    </div>
+
+    <!-- Fetch Progress Indicator -->
+    <div id="fetch-progress" style="display: none; margin-top: 10px;">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+        <span id="fetch-status">正在分析頻道頁面...</span>
+      </div>
+      <div
+        style="width: 100%; background: #eee; height: 6px; border-radius: 3px; overflow: hidden; position: relative;">
+        <div class="indeterminate-bar"></div>
+      </div>
+    </div>
+
+    <div id="video-selection-area" style="display: none; margin-top: 1rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <div style="font-weight: bold;">影片列表</div>
+        <div style="font-size: 0.9rem;">
+          <button id="select-all-btn" class="secondary-btn" style="padding: 2px 8px;">全選</button>
+          <button id="deselect-all-btn" class="secondary-btn" style="padding: 2px 8px;">取消全選</button>
+        </div>
+      </div>
+      <div id="video-list"
+        style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; border-radius: 4px;">
+        <!-- Checkboxes will be injected here -->
+      </div>
+      <div style="margin-bottom: 10px; font-size: 0.9rem; color: #666;">
+        已選擇：<span id="selected-count" style="font-weight: bold; color: #0f62fe;">0</span> 支影片
+      </div>
+
+      <div id="progress-container" style="display: none; margin-top: 1rem;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+          <span id="progress-text">準備下載...</span>
+          <span id="progress-percent">0%</span>
+        </div>
+        <div
+          style="width: 100%; background: #eee; height: 10px; border-radius: 5px; overflow: hidden; margin-bottom: 10px;">
+          <div id="progress-bar" style="width: 0%; height: 100%; background: #0f62fe; transition: width 0.3s ease;">
+          </div>
+        </div>
+        <div style="text-align: center;">
+          <button id="pause-btn" class="secondary-btn" style="padding: 4px 12px; font-size: 0.9rem;">暫停下載</button>
+        </div>
+      </div>
+
+      <button id="download-selected-btn" disabled>下載選定的影片</button>
+    </div>
+
+    <div class="result" id="creator-result"></div>
+  </section>
+
+  <section class="card">
+    <h2>TikTok 下載</h2>
+
+    <!-- Single Video Download -->
+    <div style="margin-bottom: 2rem;">
+      <h3>TikTok 單支下載</h3>
+      <div class="input-group">
+        <input type="text" id="tiktok-single-url" placeholder="貼上 TikTok 影片網址..." />
+        <button id="tiktok-single-btn">下載影片</button>
+      </div>
+      <div class="result" id="tiktok-single-result"></div>
+
+      <hr />
+
+      <h3>TikTok 創作者批量下載</h3>
+      <div class="input-group">
+        <input type="text" id="tiktok-creator-url" placeholder="貼上 TikTok 創作者主頁網址..." />
+        <button id="tiktok-fetch-btn">抓取影片列表</button>
+      </div>
+
+      <!-- Fetch Progress Indicator -->
+      <div id="tiktok-fetch-progress" style="display: none; margin-top: 10px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+          <span id="tiktok-fetch-status">正在分析創作者頁面...</span>
+        </div>
+        <div
+          style="width: 100%; background: #eee; height: 6px; border-radius: 3px; overflow: hidden; position: relative;">
+          <div class="indeterminate-bar"></div>
+        </div>
+      </div>
+
+      <div id="tiktok-video-selection-area" style="display: none; margin-top: 1rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <div style="font-weight: bold;">影片列表</div>
+          <div style="display: flex; gap: 10px;">
+            <button id="tiktok-select-all-btn" class="secondary-btn"
+              style="padding: 4px 8px; font-size: 0.8rem;">全選</button>
+            <button id="tiktok-deselect-all-btn" class="secondary-btn"
+              style="padding: 4px 8px; font-size: 0.8rem;">全不選</button>
+          </div>
+        </div>
+
+        <div id="tiktok-video-list"
+          style="max-height: 300px; overflow-y: auto; border: 1px solid #eee; padding: 10px; border-radius: 4px;">
+          <!-- Checkboxes will be injected here -->
+        </div>
+
+        <div style="margin-top: 10px; font-weight: bold;">
+          已選擇: <span id="tiktok-selected-count">0</span> 支
+        </div>
+
+        <div id="tiktok-progress-container" style="display: none; margin-top: 1rem;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+            <span id="tiktok-progress-text">準備下載...</span>
+            <span id="tiktok-progress-percent">0%</span>
+          </div>
+          <div
+            style="width: 100%; background: #eee; height: 10px; border-radius: 5px; overflow: hidden; margin-bottom: 10px;">
+            <div id="tiktok-progress-bar"
+              style="width: 0%; height: 100%; background: #0f62fe; transition: width 0.3s ease;"></div>
+          </div>
+          <div style="text-align: center;">
+            <button id="tiktok-pause-btn" class="secondary-btn"
+              style="padding: 4px 12px; font-size: 0.9rem;">暫停下載</button>
+          </div>
+        </div>
+
+        <button id="tiktok-download-selected-btn" disabled>下載選定的影片</button>
+      </div>
+
+      <div class="result" id="tiktok-creator-result"></div>
+    </div>
+  </section>
+
+  <script>
+    async function postJSON(url, payload) {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      return { ok: response.ok, data };
+    }
+
+    function setLoading(button, resultEl, message = "處理中，請稍候...") {
+      button.disabled = true;
+      if (resultEl) {
+        resultEl.textContent = message;
+        resultEl.classList.remove("error");
+      }
+    }
+
+    function finishLoading(button, resultEl) {
+      button.disabled = false;
+      if (resultEl) resultEl.textContent = "";
+    }
+
+    // --- Reusable Logic ---
+
+    function setupSingleDownload(btnId, inputId, resultId) {
+      const btn = document.getElementById(btnId);
+      const input = document.getElementById(inputId);
+      const result = document.getElementById(resultId);
+
+      btn.addEventListener("click", async () => {
+        const url = input.value.trim();
+        if (!url) {
+          result.textContent = "請貼上影片網址";
+          result.classList.add("error");
+          return;
+        }
+        setLoading(btn, result);
+        const { ok, data } = await postJSON("/api/download-single", { url });
+        finishLoading(btn, result);
+        if (ok && data.status === "success") {
+          result.innerHTML = `完成：<strong>${data.title}</strong> → <a href="${data.file_url}" download>按這裡下載</a>`;
+        } else {
+          result.textContent = data.message || "下載失敗";
+          result.classList.add("error");
+        }
+      });
+    }
+
+    function setupBatchDownload(config) {
+      const {
+        fetchBtnId, urlInputId, selectionAreaId, videoListId,
+        selectedCountId, downloadBtnId, resultId, selectAllId,
+        deselectAllId, progressContainerId, progressBarId,
+        progressTextId, progressPercentId, pauseBtnId,
+        fetchProgressId, fetchStatusId // New config options
+      } = config;
+
+      const fetchBtn = document.getElementById(fetchBtnId);
+      const urlInput = document.getElementById(urlInputId);
+      const selectionArea = document.getElementById(selectionAreaId);
+      const videoListEl = document.getElementById(videoListId);
+      const selectedCountEl = document.getElementById(selectedCountId);
+      const downloadBtn = document.getElementById(downloadBtnId);
+      const resultEl = document.getElementById(resultId);
+      const selectAllBtn = document.getElementById(selectAllId);
+      const deselectAllBtn = document.getElementById(deselectAllId);
+      const progressContainer = document.getElementById(progressContainerId);
+      const progressBar = document.getElementById(progressBarId);
+      const progressText = document.getElementById(progressTextId);
+      const progressPercent = document.getElementById(progressPercentId);
+      const pauseBtn = document.getElementById(pauseBtnId);
+
+      // New Elements (Optional, for backward compatibility if I don't update YouTube section yet)
+      const fetchProgress = fetchProgressId ? document.getElementById(fetchProgressId) : null;
+      const fetchStatus = fetchStatusId ? document.getElementById(fetchStatusId) : null;
+
+      let fetchedVideos = [];
+      let isPaused = false;
+      let abortController = null;
+
+      function renderVideoList() {
+        videoListEl.innerHTML = fetchedVideos.map((video, index) => `
+                <div style="margin-bottom: 8px; text-align: left; border-bottom: 1px solid #eee; padding-bottom: 4px;">
+                    <label style="font-weight: normal; display: flex; align-items: center; gap: 10px; cursor: pointer; width: 100%;">
+                        <input type="checkbox" class="video-checkbox-${fetchBtnId}" value="${video.url}" data-index="${index}" style="width: auto; margin: 0;">
+                        <span style="flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #333; font-size: 0.95rem;">${video.title}</span>
+                    </label>
+                </div>
+              `).join("");
+
+        videoListEl.querySelectorAll(`.video-checkbox-${fetchBtnId}`).forEach(cb => {
+          cb.addEventListener("change", updateSelectionState);
+        });
+      }
+
+      function updateSelectionState() {
+        const selected = videoListEl.querySelectorAll(`.video-checkbox-${fetchBtnId}:checked`);
+        const count = selected.length;
+        selectedCountEl.textContent = count;
+
+        if (count >= 5) {
+          downloadBtn.disabled = false;
+          downloadBtn.textContent = `下載這 ${count} 支影片`;
+        } else {
+          downloadBtn.disabled = true;
+          downloadBtn.textContent = `最少需要 5 支 (目前 ${count})`;
+        }
+      }
+
+      fetchBtn.addEventListener("click", async () => {
+        const url = urlInput.value.trim();
+        if (!url) {
+          resultEl.textContent = "請貼上網址";
+          resultEl.classList.add("error");
+          return;
+        }
+
+        // Start Loading UI
+        fetchBtn.disabled = true;
+        if (resultEl) {
+          resultEl.textContent = "";
+          resultEl.classList.remove("error");
+        }
+        selectionArea.style.display = "none";
+        progressContainer.style.display = "none";
+
+        // Show Fetch Progress
+        let statusInterval;
+        if (fetchProgress) {
+          fetchProgress.style.display = "block";
+          const messages = [
+            "正在分析創作者頁面...",
+            "影片數量可能較多，請稍候...",
+            "正在努力抓取影片列表...",
+            "請不要關閉視窗，快好了..."
+          ];
+          let msgIndex = 0;
+          if (fetchStatus) fetchStatus.textContent = messages[0];
+
+          statusInterval = setInterval(() => {
+            msgIndex = (msgIndex + 1) % messages.length;
+            if (fetchStatus) fetchStatus.textContent = messages[msgIndex];
+          }, 4000);
+        } else {
+          // Fallback for sections without the new UI
+          setLoading(fetchBtn, resultEl, "正在抓取影片列表...");
+        }
+
+        try {
+          const { ok, data } = await postJSON("/api/fetch-videos", { creator_url: url });
+
+          if (ok && data.status === "success") {
+            fetchedVideos = data.videos;
+            renderVideoList();
+            selectionArea.style.display = "block";
+            updateSelectionState();
+          } else {
+            resultEl.textContent = data.message || "抓取列表失敗";
+            resultEl.classList.add("error");
+          }
+        } catch (e) {
+          resultEl.textContent = "網路連線錯誤";
+          resultEl.classList.add("error");
+        } finally {
+          // Stop Loading UI
+          fetchBtn.disabled = false;
+          if (fetchProgress) {
+            fetchProgress.style.display = "none";
+            clearInterval(statusInterval);
+          }
+          if (!fetchProgress && resultEl) {
+            // Only clear text if we were using the old setLoading method
+            if (resultEl.textContent === "正在抓取影片列表...") resultEl.textContent = "";
+          }
+        }
+      });
+
+      selectAllBtn.addEventListener("click", () => {
+        videoListEl.querySelectorAll(`.video-checkbox-${fetchBtnId}`).forEach(cb => cb.checked = true);
+        updateSelectionState();
+      });
+
+      deselectAllBtn.addEventListener("click", () => {
+        videoListEl.querySelectorAll(`.video-checkbox-${fetchBtnId}`).forEach(cb => cb.checked = false);
+        updateSelectionState();
+      });
+
+      if (pauseBtn) {
+        pauseBtn.addEventListener("click", () => {
+          isPaused = !isPaused;
+          pauseBtn.textContent = isPaused ? "繼續下載" : "暫停下載";
+          if (!isPaused) {
+            // Resume logic is handled in the loop
+            processQueue();
+          }
+        });
+      }
+
+      let queue = [];
+      let currentBatchId = "";
+      let processedCount = 0;
+      let totalCount = 0;
+
+      async function processQueue() {
+        if (isPaused || queue.length === 0) return;
+
+        const url = queue.shift();
+        processedCount++;
+
+        // Update Progress (Start of item)
+        progressText.textContent = `正在下載第 ${processedCount}/${totalCount} 支...`;
+
+        try {
+          const { ok, data } = await postJSON("/api/download-batch-item", {
+            url: url,
+            batch_id: currentBatchId
+          });
+
+          if (ok) {
+            const item = document.createElement("li");
+            item.innerHTML = `<strong>${data.title}</strong> → <a href="${data.file_url}" download>下載</a>`;
+            if (!resultEl.querySelector("ul")) {
+              resultEl.innerHTML = "<ul></ul>";
+            }
+            resultEl.querySelector("ul").appendChild(item);
+          } else {
+            console.error("Download failed for item:", url, data.message);
+            // Optionally log error to UI
+          }
+        } catch (e) {
+          console.error("Network error for item:", url, e);
+        }
+
+        // Update Progress (End of item)
+        const percent = Math.round((processedCount / totalCount) * 100);
+        progressBar.style.width = `${percent}%`;
+        progressPercent.textContent = `${percent}%`;
+
+        if (queue.length > 0) {
+          if (!isPaused) {
+            processQueue();
+          }
+        } else {
+          progressText.textContent = "全部下載完成！";
+          downloadBtn.disabled = false;
+          if (pauseBtn) pauseBtn.style.display = "none";
+        }
+      }
+
+      downloadBtn.addEventListener("click", async () => {
+        const selectedUrls = Array.from(videoListEl.querySelectorAll(`.video-checkbox-${fetchBtnId}:checked`)).map(cb => cb.value);
+
+        downloadBtn.disabled = true;
+        resultEl.innerHTML = "";
+        progressContainer.style.display = "block";
+        progressBar.style.width = "0%";
+        progressText.textContent = "準備下載...";
+        progressPercent.textContent = "0%";
+
+        if (pauseBtn) {
+          pauseBtn.style.display = "inline-block";
+          pauseBtn.textContent = "暫停下載";
+          isPaused = false;
+        }
+
+        // Initialize Batch
+        currentBatchId = `batch_${Math.floor(Date.now() / 1000)}`;
+        queue = [...selectedUrls];
+        totalCount = selectedUrls.length;
+        processedCount = 0;
+
+        processQueue();
+      });
+    }
+
+    // Initialize YouTube Shorts
+    setupSingleDownload("single-btn", "single-url", "single-result");
+    setupBatchDownload({
+      fetchBtnId: "fetch-btn",
+      urlInputId: "creator-url",
+      selectionAreaId: "video-selection-area",
+      videoListId: "video-list",
+      selectedCountId: "selected-count",
+      downloadBtnId: "download-selected-btn",
+      resultId: "creator-result",
+      selectAllId: "select-all-btn",
+      deselectAllId: "deselect-all-btn",
+      progressContainerId: "progress-container",
+      progressBarId: "progress-bar",
+      progressTextId: "progress-text",
+      progressPercentId: "progress-percent",
+      pauseBtnId: "pause-btn",
+      fetchProgressId: "fetch-progress",
+      fetchStatusId: "fetch-status"
+    });
+
+    // Initialize TikTok
+    setupSingleDownload("tiktok-single-btn", "tiktok-single-url", "tiktok-single-result");
+    setupBatchDownload({
+      fetchBtnId: "tiktok-fetch-btn",
+      urlInputId: "tiktok-creator-url",
+      selectionAreaId: "tiktok-video-selection-area",
+      videoListId: "tiktok-video-list",
+      selectedCountId: "tiktok-selected-count",
+      downloadBtnId: "tiktok-download-selected-btn",
+      resultId: "tiktok-creator-result",
+      selectAllId: "tiktok-select-all-btn",
+      deselectAllId: "tiktok-deselect-all-btn",
+      progressContainerId: "tiktok-progress-container",
+      progressBarId: "tiktok-progress-bar",
+      progressTextId: "tiktok-progress-text",
+      progressPercentId: "tiktok-progress-percent",
+      pauseBtnId: "tiktok-pause-btn",
+      fetchProgressId: "tiktok-fetch-progress",
+      fetchStatusId: "tiktok-fetch-status"
+    });
+  </script>
+</body>
+
+</html>
